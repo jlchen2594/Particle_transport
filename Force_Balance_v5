@@ -1,0 +1,75 @@
+%Adjust Particles_pos_mid to incorporate force balance
+Solid_array = [];
+Ux_forces_array = [];
+Uy_forces_array = [];
+Uz_forces_array = [];
+Ux_forces_total = 0;
+Uy_forces_total = 0;
+Uz_forces_total = 0;
+Solid_array_unique = [];
+Ux_forces_array_unique = [];
+Uy_forces_array_unique = [];
+Uz_forces_array_unique = [];
+A = 0;
+B = 0;
+C = 0;
+ 
+%Iterate script for Sphere_array points around X_mid to find solid voxels
+for i = 1:end_pts
+    
+    if distgeo3(round(Sphere_array(1,i)),round(Sphere_array(2,i)),round(Sphere_array(3,i)))<= forbal_rad
+ 
+        ind = [idx3(round(Sphere_array(1,i)),round(Sphere_array(2,i)),round(Sphere_array(3,i)))];
+        [A,B,C] = ind2sub(siz, ind);
+        solid_voxel = [A B C];
+        Solid_array = [Solid_array; solid_voxel];
+        
+    end
+    
+end
+ 
+%Iterate force balance calculation for each solid voxel in Solid_array_unique
+if size(Solid_array,1)>= 1
+    
+    %Remove duplicated solid voxels
+    Solid_array_unique = unique(Solid_array,'rows');
+ 
+    for i=1:size(Solid_array_unique,1)
+ 
+        A = Solid_array_unique(i,1);
+        B = Solid_array_unique(i,2);
+        C = Solid_array_unique(i,3);
+ 
+        Force_Balance_Calculation;
+        
+        Ux_forces_array = [Ux_forces_array; Ux_forces];
+        Uy_forces_array = [Uy_forces_array; Uy_forces];
+        Uz_forces_array = [Uz_forces_array; Uz_forces];
+ 
+    end
+    
+    force = 1;
+    
+else
+    Fe = 0;
+    Fv = 0;
+    
+    force = 0;
+    
+end
+ 
+%Remove duplicated forces in x,y,z-directions
+Ux_forces_array_unique = unique(Ux_forces_array,'rows');
+Uy_forces_array_unique = unique(Uy_forces_array,'rows');
+Uz_forces_array_unique = unique(Uz_forces_array,'rows');
+ 
+%Calculate Fb - buoyancy force
+Fb_x = (4/3)*pi*((rad_R*L)^3)*grav_x*(rho - rho_p);
+Fb_y = (4/3)*pi*((rad_R*L)^3)*grav_y*(rho - rho_p);
+Fb_z = (4/3)*pi*((rad_R*L)^3)*grav_z*(rho - rho_p);
+ 
+%Calculate the overall force balance and include gravitational force
+Ux_forces_total = sum(Ux_forces_array_unique) - (1/(6*pi*mu*(rad_R*L)))*(Fb_x);
+Uy_forces_total = sum(Uy_forces_array_unique) - (1/(6*pi*mu*(rad_R*L)))*(Fb_y);
+Uz_forces_total = sum(Uz_forces_array_unique) - (1/(6*pi*mu*(rad_R*L)))*(Fb_z);
+
