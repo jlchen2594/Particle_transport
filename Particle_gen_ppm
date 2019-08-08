@@ -1,0 +1,258 @@
+%% Convert ppm to volume (voxels) of solids 
+ 
+%dimx, dimy, dimz and porosity (poro) already obtain in main code
+ 
+um3_to_m3 = 1*10^(-18);
+vol_sample_um = (dim_x*L*1e6)*(dim_y*L*1e6)*(dim_z*L*1e6)*poro2/inj_intervals; %USE meanq INSTEAD if needed
+vol_sample_m = vol_sample_um*um3_to_m3;
+density_particle = 2650; %Kg/m3 Input (2.65g/cm3)
+Concentration_ppm = 2000; %ppm = g/m3 Input
+Concentration_kg = Concentration_ppm/1000; %kg/m3
+Mass_all_solids = Concentration_kg*vol_sample_m; %kg
+vol_all_solids_m3 = Mass_all_solids/density_particle; %m3
+vol_all_solids_um3 = vol_all_solids_m3/um3_to_m3; %um3
+ 
+percentage_solids = (vol_all_solids_um3/vol_sample_um)*100; 
+%% Calculate mean radius from mean pore size of sample (ratio)
+%Create distribution of particles using ppm and log-normal pdf (Baghdikian)
+%Plot of Dmax frequency
+figure(1)
+[N,edges] = histcounts(Dmax(Dmax>3).*R, 'BinWidth',R/2); 
+N=N./(((edges(1:end-1) + edges(2:end))./2).^3).*(R.^3);
+histogram('BinEdges',edges,'BinCounts',N)
+%Find mode of Dmax values
+val = edges(1)
+N_max = N(1)
+for i=2:size(N,2)
+if N(i)>N_max
+val = edges(i)
+N_max = N(i)
+end
+end
+ 
+cum_vol = 0;
+Number_of_Particles = 0;
+mean_rad = (val/2)*(1e6)*(2*1.84/18); %using ratio in paper (1.84)
+std_rad = 0.5; %same value as experimental data
+%% Create PSD using distribution and concentration parameters
+mu1 = log(mean_rad^2/sqrt(std_rad + mean_rad^2));
+sig = sqrt(log((std_rad/mean_rad^2)+1));
+ 
+while cum_vol <= vol_all_solids_um3
+    rad = lognrnd(mu1,sig); %INPUT different rad and std dev.
+    radii_ppm = [radii_ppm,rad];
+    volume = (4/3)*pi*(rad)^3;
+    cum_vol = cum_vol + volume;
+    Number_of_Particles = Number_of_Particles + 1;
+end
+ 
+figure(2);
+histogram(radii_ppm);
+
+ 
+Particle Initialisation (Particle_Initialisation_forcebal):
+
+%%Particle initialisation function
+ 
+%Initialisation parameters for randomising particles and starting sim.
+Particles_vel = zeros(3,Number_of_Particles);
+Particles_pos = zeros(3,Number_of_Particles);
+velocity_p = zeros(3,1);
+Particles_pos_new = zeros(3,Number_of_Particles);
+Sphere_array = zeros(3,(Particle_points+1)^2 - 2*(Particle_points));
+offset_xy = 2;
+ 
+%Create a pore geometry matrix using "new_sample" which is updated to
+%include particle positions at each time step
+%new_sample_mid(:,:,:) = new_sample(:,:,:);
+ 
+%For loop to initialise location and find velocity of specified number of
+%particles (pore space only (0 in binary file))
+for num=1:Number_of_Particles
+    
+    value = 1;
+    offset = 5;
+    rep = 1;
+    
+    while value>=1 %solid >= 1 (true) so point generation needs to be repeated
+        
+        if rem(rep,1000) == 0
+            offset = offset + 1;
+        end
+        
+        %Random particle radius generator
+        %Modify probability distribution and skewness (skew) if needed
+        rad_R = radii_ppm(1,num)/(L*1e6); %use if generating particle from ppm data (validation)
+        
+        %Random particle position (X) generated using random number generator
+        x_1 = round(rand*start_boundary(1),3) + offset_xy + rad_R; %Index 2 is x=0.5 in real grid 
+        y_1 = round(rand*start_boundary(2),3) + offset_xy + rad_R;
+        z_1 = 1*start_boundary(3) + offset + rad_R;
+ 
+        X = [x_1;y_1;z_1];
+        
+        %Generate a sphere of points around the randomly selected point
+        [xi,yi,zi] = sphere(Particle_points);
+        
+        Sphere_array(1,1) = xi(1,1)*rad_R + X(1,1);
+        Sphere_array(2,1) = yi(1,1)*rad_R + X(2,1);
+        Sphere_array(3,1) = zi(1,1)*rad_R + X(3,1);
+        Sphere_array(1,(Particle_points+1)^2 - 2*(Particle_points)) = xi((Particle_points+1),(Particle_points+1))*rad_R + X(1,1);
+        Sphere_array(2,(Particle_points+1)^2 - 2*(Particle_points)) = yi((Particle_points+1),(Particle_points+1))*rad_R + X(2,1);
+        Sphere_array(3,(Particle_points+1)^2 - 2*(Particle_points)) = zi((Particle_points+1),(Particle_points+1))*rad_R + X(3,1);
+ 
+        point = 2;
+        for i=2:(Particle_points)
+            for j=1:(Particle_points+1)
+ 
+                if point <= (end_pts - 1)
+ 
+                    Sphere_array(1,point) = xi(i,j)*rad_R + X(1,1);
+                    Sphere_array(2,point) = yi(i,j)*rad_R + X(2,1);
+                    Sphere_array(3,point) = zi(i,j)*rad_R + X(3,1);
+ 
+                    point = point + 1;
+ 
+                end
+            end
+        end
+ 
+        %Check if any of the points of the sphere are located in a solid
+        %cell
+        
+        %point = (Particle_points+1)^2 - 2*(Particle_points))
+        total = 0;
+        i = Particle_points;
+        if Sphere_array(1,i)<=dim_x-rad_R && Sphere_array(2,i)<=dim_y-rad_R && Sphere_array(3,i)<=dim_z
+        
+            for i=1:point
+                if new_sample_mid(round(Sphere_array(1,i)),round(Sphere_array(2,i)),round(Sphere_array(3,i))) == 1 %solid
+                    value = 1;
+                else 
+                    value = 0;
+                end
+ 
+                total = total + value;
+ 
+            end
+        else
+            value = 1;
+            total = 1;
+        end
+        
+        if total == 0 %no solid detected
+            
+            %Check force balance and adjust particle location
+            if force_balance == 'Y' %turn on force balance for small particles
+                X_mid = X;
+                Force_Balance5;
+            end
+            
+            %Interporlate x, y and z velocities (assuming velocity taken from middle of particle)
+            x_1_up = round(X(1))+1;
+            x_1_down = round(X(1));
+            y_1_up = round(X(2))+1;
+            y_1_down = round(X(2));
+            z_1_up = round(X(3))+1;
+            z_1_down = round(X(3));
+ 
+            %Extracting velicities at particle centre position
+            %Flow goes up z axis 
+            v_x_1_up = xvel(x_1_up, y_1_down, z_1_down).*Scale;
+            v_x_1_down = xvel(x_1_down, y_1_down, z_1_down).*Scale;
+            v_y_1_up = yvel(x_1_down, y_1_up, z_1_down).*Scale;
+            v_y_1_down = yvel(x_1_down, y_1_down, z_1_down).*Scale;
+            v_z_1_up = zvel(x_1_down, y_1_down, z_1_up);
+            v_z_1_down = zvel(x_1_down, y_1_down, z_1_down);
+ 
+            %Interpolated velocities in x, y and z direction
+            v_x = (v_x_1_up - v_x_1_down)*(X(1) - (x_1_down - 0.5)) + v_x_1_down;
+            v_y = (v_y_1_up - v_y_1_down)*(X(2) - (y_1_down - 0.5)) + v_y_1_down;
+            v_z = (v_z_1_up - v_z_1_down)*(X(3) - (z_1_down - 0.5)) + v_z_1_down;
+ 
+            velocity_p = [v_x; v_y; v_z];
+            
+            %Re-iterate in velocity is zero at initiated point
+            if velocity_p(1,1)==0 && velocity_p(2,1)==0 && velocity_p(3,1)==0
+                value = 1;
+            end
+        
+            %Adjust velocity due to force balance
+            if force_balance == 'Y'
+                velocity_p = [v_x + Ux_forces_total; v_y + Uy_forces_total; v_z + Uz_forces_total];
+            end
+            
+            %Skip this location if vel=Inf or vel=NaN
+            if abs(velocity_p(1,1))==Inf || abs(velocity_p(2,1))==Inf || abs(velocity_p(3,1))==Inf
+                value = 1;
+            end
+            
+            if isnan(velocity_p(1,1))==1 || isnan(velocity_p(2,1))==1 || isnan(velocity_p(3,1))==1
+                value = 1;
+            end
+            
+            %Skip this location if vel<10%*average_vel
+            ave_zvel_injface = mean(mean(zvel(:,:,1+offset)));
+            if v_z < 1*ave_zvel_injface
+                value = 1;
+            end
+            
+            if value == 0
+                for i=1:point
+                    %Turn pore into solid to represent particles
+                    new_sample_mid(round(Sphere_array(1,i)),round(Sphere_array(2,i)),round(Sphere_array(3,i))) = 1;    
+                end
+                if force_balance == 'Y'
+                    IE = [IE, force];
+                end
+            end
+        else
+            value = 1;
+        end
+        
+        rep = rep + 1;
+    end
+ 
+    %Particle velocity vector (append columns for each particle)
+    Particles_vel(1:3,num) = velocity_p(1:3,1); %Particle vel at centre
+    Particles_pos(1:3,num) = X(1:3,1); %Particle centre
+    
+    %Write radius to particle_sizes array for later visualisation
+    particle_sizes = [particle_sizes,rad_R];
+ 
+end
+ 
+Velocity_matrix(1:3,start:Number_of_Particles_cont,9) = Particles_vel(1:3,1:Number_of_Particles);
+Time_Lapse_Particles_pos(1:3,start:Number_of_Particles_cont,9) = Particles_pos(1:3,1:Number_of_Particles);
+ 
+%Calculate maximum time_step allowable for 1 voxel movemnt based on velocities extracted
+max_vel = max(max(abs(Velocity_matrix(:,1:Number_of_Particles_cont,9))));
+time_step = 1*(L/max_vel);
+cum_time = time_step %Addition of all time_steps in PVI_injected (incremental PVI)
+cum_time_array(1,1,10) = cum_time;
+ 
+%New position at t = 1;
+Particles_pos_new = Particles_pos + ((Particles_vel/L) * time_step);
+ 
+Time_Lapse_Particles_pos(1:3,start:Number_of_Particles_cont,10) = Particles_pos_new(1:3,1:Number_of_Particles);
+ 
+% %Visualisation only: do not turn on for large simulations with many particles (high memory usage)
+% %Add particle positions to array for visualisation
+% count = count + 1;
+% Particle_locations(1:3,1:Number_of_Particles_cont,count) = Time_Lapse_Particles_pos(1:3,1:Number_of_Particles_cont,9);
+% Particle_locations(4,1:Number_of_Particles_cont,count) = particle_sizes(1,1:Number_of_Particles_cont);
+% Particle_locations(5,1:Number_of_Particles_cont,count) = PVI + cum_time;
+% if particle_retained > 0
+%     Particle_locations(5:7,Number_of_Particles_cont+1:Number_of_Particles_cont+particle_retained,count) = retained_particles(1:3,1:particle_retained);
+%     Particle_locations(8,Number_of_Particles_cont+1:Number_of_Particles_cont+particle_retained,count) = retained_particles_radius(1,1:particle_retained);
+% end
+% if stuck_particle > 0
+%     Particle_locations(9:11,Number_of_Particles_cont+particle_retained+1:Number_of_Particles_cont+particle_retained+stuck_particle,count) = stuck_iteration_particles(1:3,1:stuck_particle);
+%     Particle_locations(12,Number_of_Particles_cont+particle_retained+1:Number_of_Particles_cont+particle_retained+stuck_particle,count) = stuck_iteration_radius(1,1:stuck_particle);
+% end
+% if oscillating_particle > 0
+%     Particle_locations(13:15,Number_of_Particles_cont+particle_retained+stuck_particle+1:Number_of_Particles_cont+particle_retained+stuck_particle+oscillating_particle,count) = oscillation_particles(1:3,1:oscillating_particle);
+%     Particle_locations(16,Number_of_Particles_cont+particle_retained+stuck_particle+1:Number_of_Particles_cont+particle_retained+stuck_particle+oscillating_particle,count) = oscillation_radius(1,1:oscillating_particle);
+% end
+
+
