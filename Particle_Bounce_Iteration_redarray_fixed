@@ -1,0 +1,333 @@
+%%Calculation particle reflection when it intersects with solid voxels
+ 
+repeat = 0;
+Sphere_array_k_1_temp = Sphere_array_k_1;
+Sphere_array_temp = Sphere_array;
+X_mid_temp = X_mid;
+X_mid_k_1_temp = X_mid_k_1;
+vel_k_1_temp = vel_k_1;
+ 
+while (repeat < 100) && (total > 0)
+ 
+    for p = 1:end_pts
+ 
+        bounce = 0;
+        out1 = 0;
+        
+        d1 = NaN;
+        d2 = NaN;
+        d3 = NaN;
+        d1_k_1 = NaN;
+        d2_k_1 = NaN;
+        d3_k_1 = NaN;
+ 
+        while new_sample_mid(round(Sphere_array_temp(1,p)),round(Sphere_array_temp(2,p)),round(Sphere_array_temp(3,p))) == 1 %point of particle is in solid
+ 
+            face = 0;
+ 
+            if vel_k_1_temp(1,1)>=0
+                XX = round(Sphere_array_k_1_temp(1,p))+0.5;
+                x_up = XX;
+                x_down = XX - 1;
+            else
+                XX = round(Sphere_array_k_1_temp(1,p))-0.5;
+                x_up = XX + 1;
+                x_down = XX;
+            end
+ 
+            if (abs(round(Sphere_array_temp(1,p))-(Sphere_array_temp(1,p)-0.5))<0.000001*L) || (abs(round(Sphere_array_temp(1,p))-(Sphere_array_temp(1,p)+0.5))<0.000001*L)
+                %point hits cell face (X)
+%                 Allow to move on
+                face = 1;
+                
+                if (vel_k_1_temp(1,1)>=0) 
+                
+                    X_mid_temp(1,1) = X_mid_temp(1,1) - 0.0001*L;
+ 
+                    for a=1:end_pts
+                        Sphere_array_temp(1,a) = Sphere_array_temp(1,a) - 0.0001*L;
+                    end
+                end
+            
+                if  (vel_k_1_temp(1,1)<0)
+ 
+                    X_mid_temp(1,1) = X_mid_temp(1,1) + 0.0001*L;
+ 
+                    for a=1:end_pts
+                        Sphere_array_temp(1,a) = Sphere_array_temp(1,a) + 0.0001*L;
+                    end    
+                end
+ 
+            end
+ 
+            if vel_k_1_temp(2,1)>=0
+                YY = round(Sphere_array_k_1_temp(2,p))+0.5;
+                y_up = YY;
+                y_down = YY - 1;
+            else
+                YY = round(Sphere_array_k_1_temp(2,p))-0.5;
+                y_up = YY + 1;
+                y_down = YY;
+            end
+ 
+            if (abs(round(Sphere_array_temp(2,p))-(Sphere_array_temp(2,p)-0.5))<0.000001*L) || (abs(round(Sphere_array_temp(2,p))-(Sphere_array_temp(2,p)+0.5))<0.000001*L) 
+                %point hits cell face (Y)
+                %Allow to move on
+                face = 1;
+                
+                if (vel_k_1_temp(2,1)>=0)
+ 
+                    X_mid_temp(2,1) = X_mid_temp(2,1) - 0.0001*L;
+ 
+                    for a=1:end_pts
+                        Sphere_array_temp(2,a) = Sphere_array_temp(2,a) - 0.0001*L;
+                    end
+                end
+            
+                if (vel_k_1_temp(2,1)<0)
+ 
+                    X_mid_temp(2,1) = X_mid_temp(2,1) + 0.0001*L;
+ 
+                    for a=1:end_pts
+                        Sphere_array_temp(2,a) = Sphere_array_temp(2,a) + 0.0001*L;
+                    end
+                end
+                
+            end
+ 
+            if vel_k_1_temp(3,1)>=0
+                ZZ = round(Sphere_array_k_1_temp(3,p))+0.5;
+                z_up = ZZ;
+                z_down = ZZ - 1;
+            else
+                ZZ = round(Sphere_array_k_1_temp(3,p))-0.5;
+                z_up = ZZ + 1;
+                z_down = ZZ;
+            end
+ 
+            if (abs(round(Sphere_array_temp(3,p))-(Sphere_array_temp(3,p)-0.5))<0.000001*L) || (abs(round(Sphere_array_temp(3,p))-(Sphere_array_temp(3,p)+0.5))<0.000001*L)
+                %point hits cell face (X)
+                %Allow to move on
+                face = 1;
+                
+                if (vel_k_1_temp(3,1)>=0)
+                    X_mid_temp(3,1) = X_mid_temp(3,1) - 0.0001*L;
+ 
+                    for a=1:end_pts
+                        Sphere_array_temp(3,a) = Sphere_array_temp(3,a) - 0.0001*L;
+                    end
+                end
+            
+                if (vel_k_1_temp(3,1)<0)
+                    X_mid_temp(3,1) = X_mid_temp(3,1) + 0.0001*L;
+ 
+                    for a=1:end_pts
+                        Sphere_array_temp(3,a) = Sphere_array_temp(3,a) + 0.0001*L;
+                    end    
+                end
+ 
+            end
+            
+            %Position of particle if in solid
+            pos_x_over = Sphere_array_temp(1,p) - alpha*(Sphere_array_temp(1,p) - XX);
+            pos_y_over = Sphere_array_temp(2,p) - alpha*(Sphere_array_temp(2,p) - YY);
+            pos_z_over = Sphere_array_temp(3,p) - alpha*(Sphere_array_temp(3,p) - ZZ);
+ 
+            if face == 0 %no exact face hit, bounce back off surface
+ 
+                %Gradient of X_mid from X_mid_k_1
+                slope_xy = (Sphere_array_temp(1,p)-Sphere_array_k_1_temp(1,p))/(Sphere_array_temp(2,p)-Sphere_array_k_1_temp(2,p));
+                slope_xz = (Sphere_array_temp(1,p)-Sphere_array_k_1_temp(1,p))/(Sphere_array_temp(3,p)-Sphere_array_k_1_temp(3,p));
+                slope_yz = (Sphere_array_temp(2,p)-Sphere_array_k_1_temp(2,p))/(Sphere_array_temp(3,p)-Sphere_array_k_1_temp(3,p));
+ 
+                %Find intersection with XX (top/bottom)
+                y_h_1 = (1/slope_xy)*(XX-Sphere_array_k_1_temp(1,p))+Sphere_array_k_1_temp(2,p);
+                z_h_1 = (1/slope_xz)*(XX-Sphere_array_k_1_temp(1,p))+Sphere_array_k_1_temp(3,p);
+ 
+                %Find intersection with YY (left/right)
+                x_h_1 = slope_xy*(YY-Sphere_array_k_1_temp(2,p))+Sphere_array_k_1_temp(1,p);
+                z_h_2 = (1/slope_yz)*(YY-Sphere_array_k_1_temp(2,p))+Sphere_array_k_1_temp(3,p);
+ 
+                %Find intersection with ZZ (front/back)
+                x_h_2 = slope_xz*(ZZ-Sphere_array_k_1_temp(3,p))+Sphere_array_k_1_temp(1,p);
+                y_h_2 = slope_yz*(ZZ-Sphere_array_k_1_temp(3,p))+Sphere_array_k_1_temp(2,p);
+ 
+ 
+                %If hits XX plane (top/bottom)
+                if (y_down <= y_h_1) && (y_h_1 <= y_up) && (z_down <= z_h_1) && (z_h_1 <= z_up)
+ 
+                    Sphere_array_temp(1,p) = (2 * XX - pos_x_over);
+                    d1 = Sphere_array_temp(1,p) - Sphere_array_k_1_temp(1,p);
+ 
+                    if abs(d1) <= abs(Sphere_array(1,p) - Sphere_array_k_1(1,p))
+                        X_mid_temp(1,1) = X_mid_k_1_temp(1,1) + d1;
+                        for a=setdiff(1:end_pts, p)
+                            Sphere_array_temp(1,a) = Sphere_array_k_1_temp(1,a) + d1;
+                        end
+ 
+                        %Change Sphere_array_k_1_temp to point of intersection for new
+                        %interation (slightly off face value by 0.1*L)
+                        if vel_k_1_temp(1,1)>=0
+                            d1_k_1 = (XX - 0.01*L) - Sphere_array_k_1_temp(1,p);
+                        else
+                            d1_k_1 = (XX + 0.01*L) - Sphere_array_k_1_temp(1,p);
+                        end
+                        d2_k_1 = y_h_1 - Sphere_array_k_1_temp(2,p);
+                        d3_k_1 = z_h_1 - Sphere_array_k_1_temp(3,p);
+                        for a=(1:end_pts)
+                            Sphere_array_k_1_temp(1,a) = Sphere_array_k_1_temp(1,a) + d1_k_1;
+                            Sphere_array_k_1_temp(2,a) = Sphere_array_k_1_temp(2,a) + d2_k_1;
+                            Sphere_array_k_1_temp(3,a) = Sphere_array_k_1_temp(3,a) + d3_k_1;
+                        end
+                        X_mid_k_1_temp(1,1) = X_mid_k_1_temp(1,1) + d1_k_1;
+                        X_mid_k_1_temp(2,1) = X_mid_k_1_temp(2,1) + d2_k_1;
+                        X_mid_k_1_temp(3,1) = X_mid_k_1_temp(3,1) + d3_k_1;
+                        
+                        %Flip velocity after rebound for future iterations
+                        vel_k_1_temp(1,1) = -vel_k_1_temp(1,1);
+                    else
+                        out1 = 1;
+                        out_d1 = [d1,(Sphere_array(1,p) - Sphere_array_k_1(1,p))];
+                        return; %Return to main code and turn Sphere_array_k_1 solid
+                    end
+                end
+ 
+                if (x_down <= x_h_1) && (x_h_1 <= x_up) && (z_down <= z_h_2) && (z_h_2 <= z_up)
+ 
+                    Sphere_array_temp(2,p) = (2 * YY - pos_y_over);
+                    
+                    d2 = Sphere_array_temp(2,p) - Sphere_array_k_1_temp(2,p);
+ 
+                    if abs(d2) <= abs(Sphere_array(2,p) - Sphere_array_k_1(2,p))
+                        X_mid_temp(2,1) = X_mid_k_1_temp(2,1) + d2;
+                        for a=setdiff(1:end_pts, p)
+                            Sphere_array_temp(2,a) = Sphere_array_k_1_temp(2,a) + d2;
+                        end
+ 
+                        %Change Sphere_array_k_1_temp to point of intersection for new
+                        %interation
+                        d1_k_1 = x_h_1 - Sphere_array_k_1_temp(1,p);
+                        if vel_k_1_temp(2,1)>=0
+                            d2_k_1 = (YY - 0.01*L) - Sphere_array_k_1_temp(2,p);
+                        else
+                            d2_k_1 = (YY + 0.01*L) - Sphere_array_k_1_temp(2,p);
+                        end
+                        d3_k_1 = z_h_2 - Sphere_array_k_1_temp(3,p);
+                        for a=(1:end_pts)
+                            Sphere_array_k_1_temp(1,a) = Sphere_array_k_1_temp(1,a) + d1_k_1;
+                            Sphere_array_k_1_temp(2,a) = Sphere_array_k_1_temp(2,a) + d2_k_1;
+                            Sphere_array_k_1_temp(3,a) = Sphere_array_k_1_temp(3,a) + d3_k_1;
+                        end
+                        X_mid_k_1_temp(1,1) = X_mid_k_1_temp(1,1) + d1_k_1;
+                        X_mid_k_1_temp(2,1) = X_mid_k_1_temp(2,1) + d2_k_1;
+                        X_mid_k_1_temp(3,1) = X_mid_k_1_temp(3,1) + d3_k_1;
+                        
+                        %Flip velocity after rebound for future iterations
+                        vel_k_1_temp(2,1) = -vel_k_1_temp(2,1);
+                    else
+                        out1 = 1;
+                        out_d2 = [d2,(Sphere_array(2,p) - Sphere_array_k_1(2,p))];
+                        return; %Return to main code and turn Sphere_array_k_1 solid
+                    end
+                end
+ 
+                if (x_down <= x_h_2) && (x_h_2 <= x_up) && (y_down <= y_h_2) && (y_h_2 <= y_up)
+ 
+                    Sphere_array_temp(3,p) = (2 * ZZ - pos_z_over);
+ 
+                    d3 = Sphere_array_temp(3,p) - Sphere_array_k_1_temp(3,p);
+ 
+                    if abs(d3) <= abs(Sphere_array(3,p) - Sphere_array_k_1(3,p))
+                        X_mid_temp(3,1) = X_mid_k_1_temp(3,1) + d3;
+                        for a=setdiff(1:end_pts, p)
+                            Sphere_array_temp(3,a) = Sphere_array_k_1_temp(3,a) + d3;
+                        end
+                        
+                        %Change Sphere_array_k_1_temp to point of intersection for new
+                        %interation                
+                        d1_k_1 = x_h_2 - Sphere_array_k_1_temp(1,p);
+                        d2_k_1 = y_h_2 - Sphere_array_k_1_temp(2,p);
+                        if vel_k_1_temp(3,1)>=0
+                            d3_k_1 = (ZZ - 0.01*L) - Sphere_array_k_1_temp(3,p);
+                        else
+                            d3_k_1 = (ZZ + 0.01*L) - Sphere_array_k_1_temp(3,p);
+                        end
+                        for a=(1:end_pts)
+                            Sphere_array_k_1_temp(1,a) = Sphere_array_k_1_temp(1,a) + d1_k_1;
+                            Sphere_array_k_1_temp(2,a) = Sphere_array_k_1_temp(2,a) + d2_k_1;
+                            Sphere_array_k_1_temp(3,a) = Sphere_array_k_1_temp(3,a) + d3_k_1;
+                        end
+                        X_mid_k_1_temp(1,1) = X_mid_k_1_temp(1,1) + d1_k_1;
+                        X_mid_k_1_temp(2,1) = X_mid_k_1_temp(2,1) + d2_k_1;
+                        X_mid_k_1_temp(3,1) = X_mid_k_1_temp(3,1) + d3_k_1;
+                        
+                        %Flip velocity after rebound for future iterations
+                        vel_k_1_temp(3,1) = -vel_k_1_temp(3,1);
+                    else
+                        out1 = 1;
+                        out_d3 = [d3, (Sphere_array(3,p) - Sphere_array_k_1(3,p))];
+                        return; %Return to main code and turn Sphere_array_k_1 solid
+                    end
+                end
+            end
+            bounce  = bounce + 1;
+            if bounce > 100
+                disp('Unable to find next particle point location within 100 iterations');
+                bounce_end = bounce_end + 1;
+                return;
+            end
+            
+            %If particle moves beyond particle boundaries
+            %For future periodic BC application
+            if Sphere_array_temp(1,p)>(dim_x+2) || Sphere_array_temp(2,p)>(dim_y+2) || Sphere_array_temp(3,p)>(dim_z+5)
+                out1 = out1 + 1;
+                disp('Particle out of sample domain');
+                out_end = out_end + 1;
+                return;
+            end 
+        end
+        %Reset sphere_array_k_1_temp and X_mid_k_1 for next particle point iteration
+        Sphere_array_k_1_temp = Sphere_array_k_1;
+        X_mid_k_1_temp = X_mid_k_1;
+        %Update or reset velocity directions 
+        
+        if isnan(d1)==0
+            if Sphere_array_temp(1,p)>=Sphere_array_k_1(1,p)
+                vel_k_1_temp(1) = abs(vel_k_1_temp(1))*(1); %positive vel_x
+            else
+                vel_k_1_temp(1) = abs(vel_k_1_temp(1))*(-1); %negative vel_x
+            end
+        end
+        if isnan(d2)==0
+            if Sphere_array_temp(2,p)>=Sphere_array_k_1(2,p)
+                vel_k_1_temp(2) = abs(vel_k_1_temp(2))*(1); %positive vel_x
+            else
+                vel_k_1_temp(2) = abs(vel_k_1_temp(2))*(-1); %negative vel_x
+            end
+        end
+        if isnan(d3)==0
+            if Sphere_array_temp(3,p)>=Sphere_array_k_1(3,p)
+                vel_k_1_temp(3) = abs(vel_k_1_temp(3))*(1); %positive vel_x
+            else
+                vel_k_1_temp(3) = abs(vel_k_1_temp(3))*(-1); %negative vel_x
+            end
+        end
+    end
+    %Check if updated particle is no longer in solid after one round of sphere
+    total = 0;
+    if (skip ~= 1) && (out1 == 0) && (repeat < 100) %&& (face == 0)
+        for s=1:end_pts
+            if new_sample_mid(round(Sphere_array_temp(1,s)),round(Sphere_array_temp(2,s)),round(Sphere_array_temp(3,s))) == 1 %solid
+                total = total + 1;
+            end
+        end 
+        if total > 0
+            repeat = repeat + 1;
+        end 
+        if total == 0
+           Sphere_array = Sphere_array_temp;
+           X_mid = X_mid_temp;
+           Time_Lapse_Particles_pos(:,start,10) = X_mid(:,1);
+        end
+    end
+end
