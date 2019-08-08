@@ -1,0 +1,103 @@
+%Calculate Ux_forces, Uy_forces and Uz_forces
+ 
+delta = (forbal_rad-0.5)*L;
+ 
+%Check if any points of the particles lie in solid
+%(original only)
+if sample_ref(A,B,C) == 0
+    %Nearest solid is a stuck particle
+    psi_02 = psi_01;
+else
+    %Nearest solid is pore wall
+    psi_02 = psi_02_ref;
+end
+ 
+if A - X_mid(1) > 0.5
+    delta_x = (A - X_mid(1) - 0.5)*L; %units: metres (m)
+end
+if abs(A - X_mid(1)) <= 0.5 %&& abs(A - X_mid(1)) >= 0
+    delta_x = 0; %units: metres (m)
+end
+if A - X_mid(1) < -0.5
+    delta_x = (A - X_mid(1) + 0.5)*L; %units: metres (m)
+end
+ 
+if B - X_mid(2) > 0.5
+    delta_y = (B - X_mid(2) - 0.5)*L; %units: metres (m)
+end
+if abs(B - X_mid(2)) <= 0.5 %&& abs(B - X_mid(2)) >= 0
+    delta_y = 0; %units: metres (m)
+end
+if B - X_mid(2) < -0.5
+    delta_y = (B - X_mid(2) + 0.5)*L; %units: metres (m)
+end
+ 
+if C - X_mid(3) > 0.5
+    delta_z = (C - X_mid(3) - 0.5)*L; %units: metres (m)
+end
+if abs(C - X_mid(3)) <= 0.5 %&& abs(C - X_mid(3)) >= 0
+    delta_z = 0; %units: metres (m)
+end
+if C - X_mid(3) < -0.5
+    delta_z = (C - X_mid(3) + 0.5)*L; %units: metres (m)
+end
+ 
+delta_p = delta/(rad_R*1e-6);
+ 
+%Positive distance from solid face
+delta_x_pos = abs(delta_x);
+delta_y_pos = abs(delta_y);
+delta_z_pos = abs(delta_z);
+ 
+%Calculate forces (Fv and Fe)
+ 
+%Electrostatic/electrokinetic Force
+%From Yang & Balhoff paper...
+Fe = (64*pi*(eps*eps_0)*(rad_R*L)*K_deb*((k_bol*Temp)/(z_val*e))^2*tanh((z_val*e*psi_01)/(4*k_bol*Temp))*tanh((z_val*e*psi_02)/(4*k_bol*Temp))*e^(-k_bol*delta));
+ 
+%VDW or London Force
+%From Sahimi's Computer Sim paper...
+P = 2*pi*delta/(10^-7);
+ 
+if P>=0 && P<=3
+    alpha_sp = 1/(1+0.620725*P+0.075159*P^2);
+end
+if P>=3
+    alpha_sp = 1.024172/P + 0.714228/P^2 + 0.555262/P^3;
+end
+ 
+Fv = -(2/3)*(H/(rad_R*L))*(alpha_sp/(delta_p^2*(2+delta_p)^2));
+ 
+%Distribute forces according to ratio of distances
+if (delta_x_pos > delta_y_pos) && (delta_x_pos > delta_z_pos)
+    if delta_x > 0
+        Ux_forces = -(1/(6*pi*mu*(rad_R*L)))*(Fe+Fv);
+    else
+        Ux_forces = (1/(6*pi*mu*(rad_R*L)))*(Fe+Fv);
+    end
+else
+    Ux_forces = 0;
+end
+ 
+if (delta_y_pos > delta_x_pos) && (delta_y_pos > delta_z_pos)
+    if delta_y > 0
+        Uy_forces = -(1/(6*pi*mu*(rad_R*L)))*(Fe+Fv);
+    else
+        Uy_forces = (1/(6*pi*mu*(rad_R*L)))*(Fe+Fv);
+    end
+else
+    Uy_forces = 0;
+end
+ 
+if (delta_z_pos > delta_x_pos) && (delta_z_pos > delta_y_pos)
+    if delta_z > 0
+        Uz_forces = -(1/(6*pi*mu*(rad_R*L)))*(Fe+Fv);
+    else
+        Uz_forces = (1/(6*pi*mu*(rad_R*L)))*(Fe+Fv);
+    end
+else
+    Uz_forces = 0;
+end
+ 
+%Revert charge to reference charge (pore wall)
+psi_02 = psi_02_ref;
